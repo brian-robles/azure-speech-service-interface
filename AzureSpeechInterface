@@ -1,0 +1,74 @@
+using Microsoft.CognitiveServices.Speech;
+using Microsoft.CognitiveServices.Speech.Audio;
+using System;
+using System.Threading.Tasks;
+
+class AzureSpeechInterface
+{
+    static async Task Main(string[] args)
+    {
+        await TranscribeSpeechAsync();
+    }
+
+    static async Task TranscribeSpeechAsync()
+    {
+        var subscriptionKey = "YourSubscriptionKey";
+        var serviceRegion = "YourServiceRegion";
+        var speechConfig = SpeechConfig.FromSubscription(subscriptionKey, serviceRegion);
+
+        // Enable speaker diarization
+        speechConfig.SetProperty("ConversationTranscriptionInRoomAndOnline", "true");
+        speechConfig.SetProperty("DifferentiateGuestSpeakers", "true");
+
+        // Setup the audio configuration (using default microphone in this example)
+        using var audioConfig = AudioConfig.FromDefaultMicrophoneInput();
+        using var recognizer = new SpeechRecognizer(speechConfig, audioConfig);
+
+        Console.WriteLine("Listening, press Ctrl+C to exit...");
+
+        // Subscribing to events
+        recognizer.Recognizing += (s, e) =>
+        {
+            Console.WriteLine($"RECOGNIZING: Text={e.Result.Text}");
+        };
+
+        recognizer.Recognized += (s, e) =>
+        {
+            if (e.Result.Reason == ResultReason.RecognizedSpeech)
+            {
+                Console.WriteLine($"RECOGNIZED: Text={e.Result.Text}");
+                // Here you can access e.Result.SpeakerId if diarization is successful
+            }
+            else if (e.Result.Reason == ResultReason.NoMatch)
+            {
+                Console.WriteLine("NOMATCH: Speech could not be recognized.");
+            }
+        };
+
+        recognizer.Canceled += (s, e) =>
+        {
+            Console.WriteLine($"CANCELED: Reason={e.Reason}");
+
+            if (e.Reason == CancellationReason.Error)
+            {
+                Console.WriteLine($"CANCELED: ErrorCode={e.ErrorCode}");
+                Console.WriteLine($"CANCELED: ErrorDetails={e.ErrorDetails}");
+            }
+        };
+
+        recognizer.SessionStopped += (s, e) =>
+        {
+            Console.WriteLine("\nSession stopped.");
+        };
+
+        // Start recognizing
+        await recognizer.StartContinuousRecognitionAsync();
+
+        // Wait for completion. In real apps, you should use something like a manual reset event or await a task completion.
+        Console.WriteLine("Press any key to stop...");
+        Console.ReadKey();
+
+        // Stop recognizing
+        await recognizer.StopContinuousRecognitionAsync();
+    }
+}
